@@ -1,0 +1,2 @@
+Simple bash script in network where dhcp server assign ips from pool with mac addresses to
+find unused host.
