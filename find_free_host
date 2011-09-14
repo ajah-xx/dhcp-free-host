@@ -1,0 +1,133 @@
+#!/bin/bash
+
+#START DEFINING FUNCTION FOR THE SCRIPT
+
+# 1 = interface , 2 hw
+
+function assign_hw {
+	ifconfig $1 hw ether $2 
+}
+ 
+
+#END DEFINING FUNCTION FOR THE SCRIPT
+ 
+ 
+#load the addrs in array
+addr=( `cat "hosts_addr" `)
+
+#load the hws in array
+hw=( `cat "hosts_hw" `)
+
+
+#assing temporary ip witch will check for free host
+
+index=-1;
+
+interface="eth0"
+
+for((i=1;i< ${#hw[@]}   ;i++))
+do
+
+	ifconfig $interface down
+
+	ifconfig $interface up
+
+	assign_hw $interface ${hw[$i]}		
+
+	timeout -s SIGKILL 7s dhclient $interface
+
+	#check if there is connection
+	count=$(timeout -s SIGKILL 7s nmap google.com | grep -c "1 host up") 	
+
+	if [ $count == 1 ] 
+	then
+
+		check_host_hw=${hw[$i]}
+
+		index=$i
+		break;
+
+	fi
+
+done
+
+
+#check for free host with temporary host
+
+
+printf "PROBABLE HW %s \n"	"$check_host_hw"
+
+if [ "$check_host_hw" == "" ]
+then
+
+exit
+
+fi 
+
+
+for((i=1;i< ${#addr[@]}   ;i++))
+do
+
+	if [ "${hw[$i]}" !=  "$check_host_hw"  ]
+	then	
+ 
+	count=$(timeout 6s nmap ${addr[$i]} | grep -c "0 hosts up") 		
+
+
+	if [ $count == 1  ] 
+	then
+			
+		printf "%s %s\n"	"${hw[$i]}" "${addr[$i]}"
+
+		#echo "${addr[$i] ${hw[$i]}\n"		
+		
+		ifconfig $interface down
+
+		ifconfig $interface up
+	
+
+		assign_hw $interface ${hw[$i]}			
+		
+		timeout -s SIGKILL 7s dhclient $interface
+
+		count=$(ifconfig $interface | grep -c ${addr[$i]})
+
+		#ifconfig
+			
+			if [ $count == 1 ] 
+			then
+
+				ifconfig $interface down
+				ifconfig $interface up
+				assign_hw $interface ${hw[$i]}			
+				dhclient $interface
+
+
+				printf "FREE & CONNECTED HOST FOUND\n"
+
+				exit
+		
+			fi
+			
+			if [ $count == 0 ] 				
+			then
+	 			
+				ifconfig $interface down
+				ifconfig $interface up
+				assign_hw $interface $check_host_hw			
+				timeout -s SIGKILL 7s dhclient $interface
+	
+			fi
+
+
+
+	fi
+
+
+	fi
+
+
+done
+
+
+
